@@ -1,0 +1,34 @@
+# Arquivo: webhook-inspector/.gitignore
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Arquivos de ambiente
+# Ignora TODOS os arquivos .env, em QUALQUER pasta do projeto.
+# Esta é a regra mais importante para a sua segurança.
+**/.env
+
+# Dependências
+# Ignora as pastas de dependências em todos os pacotes.
+**/node_modules
+
+# Arquivos de build e cache
+**/dist
+**/.turbo
+.next
+.vercel
+
+# Arquivos de configuração do Drizzle gerados
+**/drizzle
+
+# Arquivos de sistema operacional
+.DS_Store
+Thumbs.db
+
+# Arquivos de configuração de editores
+.vscode/

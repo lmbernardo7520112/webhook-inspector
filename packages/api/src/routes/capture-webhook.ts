@@ -2,22 +2,19 @@
 import { type FastifyInstance } from 'fastify'
 import { type ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
-import { db } from '../db/index.js'
-import { webhooks } from '../db/schema.js'
+import { createWebhook } from '../services/webhook-service.js' // <-- Importa a lógica de negócio do serviço
 
 export async function captureWebhook(app: FastifyInstance) {
   app.withTypeProvider<ZodTypeProvider>().post(
     '/',
     {
+      // O schema permanece idêntico. A "forma" externa da nossa API não mudou.
       schema: {
         body: z.any(),
-        // --- A MUDANÇA CRÍTICA ESTÁ AQUI ---
-        // Expandimos o contrato de resposta para incluir um possível erro 500.
         response: {
           201: z.object({
             webhookId: z.string(),
           }),
-          // Agora, o TypeScript sabe que um erro 500 com esta forma é permitido.
           500: z.object({
             message: z.string(),
           }),
@@ -25,33 +22,34 @@ export async function captureWebhook(app: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const method = request.method
-      const headers = request.headers
-      const queryParams = request.query
-      const body = request.body
+      try {
+        // 1. A rota continua responsável por extrair os dados da requisição HTTP.
+        const { method, headers, query, body } = request
 
-      const result = await db
-        .insert(webhooks)
-        .values({
+        // 2. A rota agora DELEGA a tarefa de interagir com o banco de dados
+        //    para a camada de serviço.
+        const newWebhook = await createWebhook({
           method,
           headers,
-          queryParams,
+          queryParams: query,
           body,
         })
-        .returning({
-          id: webhooks.id,
-        })
 
-      const newWebhook = result[0]
+        // 3. A lógica de verificação e resposta permanece na rota,
+        //    pois é uma responsabilidade da camada de apresentação (HTTP).
+        if (!newWebhook) {
+          return reply.status(500).send({ message: 'Internal Server Error: Could not create webhook entry.' })
+        }
+        
+        return reply.status(201).send({ webhookId: newWebhook.id })
 
-      if (!newWebhook) {
-        // Esta linha agora é VÁLIDA porque o schema permite uma resposta 500.
-        // O TypeScript também verificará se o corpo ({ message: ... }) corresponde ao schema 500.
-        return reply.status(500).send({ message: 'Internal Server Error: Could not create webhook entry.' })
+      } catch (error) {
+        // Adicionamos um bloco try...catch como uma camada extra de segurança.
+        // Se o serviço (ou qualquer outra coisa) lançar uma exceção inesperada,
+        // nós a capturamos e retornamos um erro 500 genérico.
+        console.error('Falha ao capturar webhook:', error)
+        return reply.status(500).send({ message: 'An unexpected error occurred.' })
       }
-      
-      // Esta linha continua válida porque o schema permite uma resposta 201.
-      return reply.status(201).send({ webhookId: newWebhook.id })
     }
   )
 }

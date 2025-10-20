@@ -2,18 +2,26 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { useState, useMemo, useEffect } from 'react'
-import { CodeBlock } from './components/CodeBlock.js'
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
+import { Trash2 } from 'lucide-react'
+
+// Importações dos nossos componentes de UI, agora com os caminhos corretos
+import { AiSchemaDialog } from './components/AiSchemaDialog.js'
 import { DeleteConfirmationDialog } from './components/DeleteConfirmationDialog.js'
-import {
-  Panel,
-  PanelGroup,
-  PanelResizeHandle,
-} from 'react-resizable-panels'
+import { Badge } from './components/ui/badge.js'
+import { CodeBlock } from './components/ui/code-block.js'
+import { EmptyState } from './components/ui/empty-state.js'
+import { IconButton } from './components/ui/icon-button.js'
+import { KeyValueTable } from './components/ui/key-value-table.js'
+import { Logo } from './components/ui/logo.js'
+import { MetadataRow } from './components/ui/metadata-row.js'
+import { SectionHeader } from './components/ui/section-header.js'
+import { Skeleton } from './components/ui/skeleton.js'
 
 // Interface que define a "forma" dos nossos dados de webhook
 interface Webhook {
   id: string
-  method: string
+  method: 'GET' | 'POST' | 'DELETE' | 'PUT' | 'PATCH' // Tipagem mais estrita para o Badge
   createdAt: string
   headers: Record<string, any>
   body: Record<string, any>
@@ -68,87 +76,119 @@ function App() {
   }, [filteredWebhooks, selectedWebhookId])
 
   // --- RENDERIZAÇÃO ---
+  if (isLoading) {
+    // Tela de Carregamento com Esqueletos e Tema Dark
+    return (
+      <div className="bg-zinc-900 text-zinc-50 min-h-screen font-sans flex">
+        <aside className="w-1/3 border-r border-zinc-800 p-4 space-y-4">
+          <Skeleton className="h-8 w-1/4" />
+          <Skeleton className="h-10 w-full" />
+          <div className="space-y-2 pt-4">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </div>
+        </aside>
+        <main className="w-2/3 p-6 space-y-6">
+          <Skeleton className="h-8 w-1/2" />
+          <Skeleton className="h-6 w-1/4" />
+          <div className="space-y-2 pt-6">
+            <Skeleton className="h-40 w-full" />
+            <Skeleton className="h-64 w-full" />
+          </div>
+        </main>
+      </div>
+    )
+  }
+
   if (error) {
-    return <div className="p-4 text-red-500">Erro ao buscar dados: {error.message}</div>
+    return <div className="p-4 text-red-500 bg-red-950 min-h-screen">Erro ao buscar dados: {error.message}</div>
   }
 
   return (
-    <PanelGroup direction="horizontal" className="h-screen bg-gray-50 font-sans">
-      
-      {/* PAINEL DA ESQUERDA: LISTA E CONTROLES */}
-      <Panel defaultSize={33} minSize={20}>
-        <div className="flex flex-col h-full">
-          <div className="p-4 border-b">
-            <h1 className="text-xl font-bold">Webhooks Capturados</h1>
-            <input
-              type="text"
-              placeholder="Buscar por ID ou no corpo..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full mt-2 p-2 border border-gray-300 rounded-md"
-            />
-            <p className="text-sm text-gray-500 mt-2">
-              {isLoading ? 'Buscando...' : `${filteredWebhooks.length} de ${webhooks?.length || 0} requisições`}
-            </p>
-          </div>
-          <nav className="flex-1 overflow-y-auto">
-            {filteredWebhooks.map((webhook) => (
-              <div key={webhook.id} className="flex items-center border-b border-gray-200 group">
-                <button
-                  onClick={() => setSelectedWebhookId(webhook.id)}
-                  className={`flex-1 text-left p-4 focus:outline-none ${
-                    selectedWebhookId === webhook.id ? 'bg-blue-100' : 'hover:bg-gray-100'
-                  }`}
-                >
-                  <p className="font-mono text-sm">{webhook.method}</p>
-                  <p className="text-xs text-gray-600 truncate">ID: {webhook.id}</p>
-                </button>
-                <DeleteConfirmationDialog onConfirm={() => deleteWebhookMutation.mutate(webhook.id)}>
-                  <button className="p-2 mr-2 text-gray-400 hover:text-red-600 hover:bg-red-100 rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+    <div className="bg-zinc-900 text-zinc-50 min-h-screen font-sans">
+      <PanelGroup direction="horizontal">
+        {/* PAINEL DA ESQUERDA: LISTA E CONTROLES */}
+        <Panel defaultSize={33} minSize={20} className="p-4 flex flex-col">
+          <Logo />
+          <input
+            type="text"
+            placeholder="Buscar por ID ou no corpo..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full mt-4 p-2 bg-zinc-800 border border-zinc-700 rounded-md focus:ring-2 focus:ring-green-400 focus:outline-none"
+          />
+          <p className="text-sm text-zinc-400 mt-2">
+            {`${filteredWebhooks.length} de ${webhooks?.length || 0} requisições`}
+          </p>
+
+          <nav className="flex-1 mt-4 space-y-1 overflow-y-auto pr-2">
+            {filteredWebhooks.length > 0 ? (
+              filteredWebhooks.map((webhook) => (
+                <div key={webhook.id} className="flex items-center group relative">
+                  {selectedWebhookId === webhook.id && (
+                    <div className="absolute left-[-1rem] h-6 w-1 bg-green-400 rounded-r-full" />
+                  )}
+                  <button onClick={() => setSelectedWebhookId(webhook.id)} className={`w-full flex items-center gap-3 p-2 rounded-md ${selectedWebhookId === webhook.id ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'}`}>
+                    <Badge method={webhook.method} />
+                    <span className="font-mono text-sm text-zinc-400">/webhooks</span>
                   </button>
-                </DeleteConfirmationDialog>
-              </div>
-            ))}
+                  <div className="absolute right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <DeleteConfirmationDialog onConfirm={() => deleteWebhookMutation.mutate(webhook.id)}>
+                      <IconButton><Trash2 className="h-4 w-4" /></IconButton>
+                    </DeleteConfirmationDialog>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <EmptyState>
+                {searchQuery ? `Nenhum resultado para "${searchQuery}".` : 'Nenhum webhook capturado ainda.'}
+              </EmptyState>
+            )}
           </nav>
-        </div>
-      </Panel>
-      
-      <PanelResizeHandle className="w-1 bg-gray-200 hover:bg-blue-500 transition-colors" />
+        </Panel>
 
-      {/* PAINEL DA DIREITA: DETALHES */}
-      <Panel minSize={30}>
-        <main className="h-full p-6 overflow-y-auto">
-          {selectedWebhook ? (
-            <div>
-              <h2 className="text-lg font-bold">Detalhes da Requisição</h2>
-              <p className="text-sm text-gray-500 mb-4">
-                Capturado em: {new Date(selectedWebhook.createdAt).toLocaleString()}
-              </p>
-              <div className="mt-6">
-                <h3 className="font-semibold mb-2">Headers</h3>
-                <CodeBlock
-                  lang="json"
-                  code={JSON.stringify(selectedWebhook.headers, null, 2)}
-                />
-              </div>
-              <div className="mt-6">
-                <h3 className="font-semibold mb-2">Body (Payload)</h3>
-                <CodeBlock
-                  lang="json"
-                  code={JSON.stringify(selectedWebhook.body, null, 2)}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-500">
-              <p>Selecione um webhook na lista para ver os detalhes.</p>
-            </div>
-          )}
-        </main>
-      </Panel>
+        <PanelResizeHandle className="w-1 bg-zinc-800 hover:bg-green-400 transition-colors" />
 
-    </PanelGroup>
+        {/* PAINEL DA DIREITA: DETALHES */}
+        <Panel minSize={30}>
+          <main className="h-full p-6 overflow-y-auto">
+            {selectedWebhook ? (
+              <div>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold">Detalhes da Requisição</h2>
+                    <MetadataRow label="Capturado em" value={new Date(selectedWebhook.createdAt).toLocaleString()} />
+                  </div>
+                  <AiSchemaDialog jsonPayload={JSON.stringify(selectedWebhook.body)}>
+                    <button className="px-3 py-2 text-sm bg-green-500 text-white rounded-md hover:bg-green-600 font-semibold">
+                      Gerar Schema Zod
+                    </button>
+                  </AiSchemaDialog>
+                </div>
+                
+                <div className="mt-8">
+                  <SectionHeader>Headers</SectionHeader>
+                  <KeyValueTable data={selectedWebhook.headers} />
+                </div>
+                
+                <div className="mt-6">
+                  <SectionHeader>Request Body</SectionHeader>
+                  <CodeBlock
+                    lang="json"
+                    code={JSON.stringify(selectedWebhook.body, null, 2)}
+                  />
+                </div>
+              </div>
+            ) : (
+              <EmptyState>
+                Selecione um webhook na lista para ver os detalhes.
+              </EmptyState>
+            )}
+          </main>
+        </Panel>
+      </PanelGroup>
+    </div>
   )
 }
 

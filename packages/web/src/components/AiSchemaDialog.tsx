@@ -1,6 +1,14 @@
-import * as Dialog from '@radix-ui/react-dialog'
-import { useRef, useState, type ReactNode } from 'react'
-import { CodeBlock } from './CodeBlock.js'
+// packages/web/src/components/AiSchemaDialog.tsx
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from './ui/dialog.js'
+import { useState, type ReactNode } from 'react'
+import { CodeBlock } from './ui/code-block.js' // Caminho corrigido
 
 interface AiSchemaDialogProps {
   children: ReactNode
@@ -8,68 +16,78 @@ interface AiSchemaDialogProps {
 }
 
 export function AiSchemaDialog({ children, jsonPayload }: AiSchemaDialogProps) {
-  const [assistantMessage, setAssistantMessage] = useState('')
-  const [loading, setLoading] = useState(false)
-  const controllerRef = useRef<AbortController | null>(null)
+  const [generatedSchema, setGeneratedSchema] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  function handleOpenChange(open: boolean) {
-    if (open) {
-      setAssistantMessage('')
-      setLoading(true)
-      controllerRef.current = new AbortController()
-      fetch('http://localhost:3333/generate-schema', {
+  async function handleGenerateSchema() {
+    setIsLoading(true)
+    setError(null)
+    setGeneratedSchema(null)
+
+    try {
+      const response = await fetch('http://localhost:3333/ai/generate-schema', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jsonPayload }),
-        signal: controllerRef.current.signal
-      }).then(response => {
-        if (!response.ok) throw new Error('Network error')
-        if (!response.body) throw new Error('No body')
-        const reader = response.body.getReader()
-        const decoder = new TextDecoder()
-        function read() {
-          reader.read().then(({ done, value }) => {
-            if (done) {
-              setLoading(false)
-              return
-            }
-            const chunk = decoder.decode(value)
-            setAssistantMessage(prev => prev + chunk)
-            read()
-          }).catch(err => {
-            if (err.name !== 'AbortError') console.error(err)
-            setLoading(false)
-          })
-        }
-        read()
-      }).catch(err => {
-        if (err.name !== 'AbortError') console.error(err)
-        setLoading(false)
       })
+
+      if (!response.ok) throw new Error('Falha na requisição ao servidor')
+      if (!response.body) throw new Error('Resposta do servidor sem corpo.')
+      
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      
+      let result = ''
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        
+        const chunk = decoder.decode(value)
+        result += (chunk)
+        setGeneratedSchema(result)
+      }
+    } catch (err: any) {
+      console.error('Falha ao gerar schema:', err)
+      setError(err.message || 'Não foi possível gerar o schema.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  function handleOpenChange(open: boolean) {
+    if (open) {
+      handleGenerateSchema()
     } else {
-      controllerRef.current?.abort()
-      setLoading(false)
+      setGeneratedSchema(null)
+      setError(null)
     }
   }
 
   return (
-    <Dialog.Root onOpenChange={handleOpenChange}>
-      <Dialog.Trigger asChild>{children}</Dialog.Trigger>
-      <Dialog.Portal>
-        <Dialog.Overlay className="bg-black/60 data-[state=open]:animate-overlayShow fixed inset-0" />
-        <Dialog.Content className="data-[state=open]:animate-contentShow fixed top-1/2 left-1/2 h-[85vh] w-[90vw] max-w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-lg focus:outline-none flex flex-col">
-          <Dialog.Title className="text-lg font-bold">
-            Schema Zod Gerado por IA
-          </Dialog.Title>
-          <div className="flex-1 mt-4 overflow-y-auto">
-            {assistantMessage ? (
-              <CodeBlock lang="json" code={assistantMessage} />
-            ) : (
-              <p>{loading ? 'Gerando schema...' : 'Analisando payload e gerando schema...'}</p>
-            )}
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+    <Dialog onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      {/* O DialogContent já inclui Portal e Overlay, simplificando o código */}
+      <DialogContent className="h-[85vh] max-w-[800px] flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Schema Zod Gerado por IA</DialogTitle>
+          <DialogDescription className="sr-only">
+            Um schema Zod gerado por inteligência artificial com base no payload do seu webhook.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex-1 mt-4 overflow-y-auto">
+          {isLoading && !generatedSchema && (
+            <div className="flex items-center justify-center h-full text-zinc-400">
+              <p>Analisando payload e gerando schema...</p>
+            </div>
+          )}
+          {error && <p className="text-red-500">{error}</p>}
+          {generatedSchema && (
+            <CodeBlock lang="typescript" code={generatedSchema} />
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }

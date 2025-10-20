@@ -20,9 +20,10 @@ const app = fastify().withTypeProvider<ZodTypeProvider>()
 app.setValidatorCompiler(validatorCompiler)
 app.setSerializerCompiler(serializerCompiler)
 
-// Registre o plugin de CORS
+/// --- CONFIGURAÇÃO DE CORS ROBUSTA ---
 app.register(fastifyCors, {
-  origin: '*', // Para desenvolvimento, permitimos qualquer origem. Em produção, isso seria restrito.
+  origin: true, // Reflete a origem da requisição, uma opção mais segura que '*'
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Garante que todos os métodos são permitidos
 })
 
 // Registra nosso plugin de rota com o prefixo correto.

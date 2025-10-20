@@ -3,7 +3,7 @@
 export default {
   content: [
     "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
+    "./src/**/*.{js,ts,jsx,tsx}", // Esta linha agora irá incluir App.tsx E a pasta /components
   ],
   theme: {
     extend: {

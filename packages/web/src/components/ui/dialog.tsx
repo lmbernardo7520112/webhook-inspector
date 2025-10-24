@@ -33,7 +33,7 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={clsx(
-        'fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 border border-zinc-800 bg-zinc-900 p-6 shadow-lg duration-200 data-[state=open]:animate-contentShow',
+        'fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 border border-zinc-700 bg-zinc-800 p-6 shadow-lg duration-200 data-[state=open]:animate-contentShow', // <-- CORREÇÃO: de bg-zinc-900 para bg-zinc-800
         'max-h-[85vh] overflow-y-auto rounded-lg',
         className
       )}
@@ -77,7 +77,7 @@ const DialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={clsx('text-lg font-semibold leading-none tracking-tight', className)}
+    className={clsx('text-lg font-semibold leading-none tracking-tight text-zinc-50', className)} // Corrigido para texto claro
     {...props}
   />
 ))

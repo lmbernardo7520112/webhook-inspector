@@ -1,3 +1,16 @@
 # pnpm-workspace.yaml
+# Arquivo de configuração do monorepo PNPM
+# Ele define quais diretórios são considerados pacotes do workspace
+
 packages:
-  - 'packages/*'
+  - 'packages/*'   # Inclui todos os pacotes dentro da pasta 'packages/'
+  - 'apps/*'       # (Opcional) caso queira adicionar outra pasta para apps no futuro
+  - 'libs/*'       # (Opcional) caso tenha bibliotecas compartilhadas
+
+# (Opcional) Você pode adicionar configurações globais de link, caso use aliases internos
+# por exemplo, se quiser importar '@shared/*' diretamente:
+# 
+# packageExtensions:
+#   "@shared/*":
+#     dependencies:
+#       - "@types/node": "*"
